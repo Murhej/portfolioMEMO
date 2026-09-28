@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.github/prompts/
+.DS_Store
+Thumbs.db
