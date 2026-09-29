@@ -386,7 +386,7 @@ function PortraitCard() {
       >
         <motion.img
           className="hero-portrait-image"
-          src="/images/murhej-portrait.jpg"
+          src={`${import.meta.env.BASE_URL}images/murhej-portrait.jpg`}
           alt="Murhej Hantoush"
           loading="eager"
           whileHover={reduceMotion ? undefined : { scale: 1.035 }}
