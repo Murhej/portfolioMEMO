@@ -2,6 +2,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type FormEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -14,6 +15,7 @@ import {
   Check,
   ChevronDown,
   Code2,
+  Copy,
   Database,
   ExternalLink,
   Github,
@@ -912,12 +914,72 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSkill, setActiveSkill] = useState("AI / Machine Learning");
   const [activeChapter, setActiveChapter] = useState("intro");
+  const [emailCopied, setEmailCopied] = useState(false);
+  const [contactFormOpen, setContactFormOpen] = useState(false);
+  const [contactSending, setContactSending] = useState(false);
+  const [contactStatus, setContactStatus] = useState("");
   const reduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll();
   const introNameY = useTransform(scrollYProgress, [0, 0.16], [0, -82]);
   const introNameOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0.1]);
   const introGlowOpacity = useTransform(scrollYProgress, [0, 0.08], [0.5, 0]);
   const closeCaseStudy = () => setActiveProject(null);
+  const copyContactEmail = async () => {
+    try {
+      await navigator.clipboard.writeText("murhej.hantoush.work@gmail.com");
+      setEmailCopied(true);
+      window.setTimeout(() => setEmailCopied(false), 2200);
+    } catch {
+      setEmailCopied(false);
+    }
+  };
+  const copyMessageFallback = async (formData: FormData) => {
+    const name = String(formData.get("name") ?? "");
+    const senderEmail = String(formData.get("email") ?? "");
+    const message = String(formData.get("message") ?? "");
+    const body = `From: ${name}\nEmail: ${senderEmail}\n\n${message}`;
+    try {
+      await navigator.clipboard.writeText(body);
+      setContactStatus("NOT SENT: the email service could not accept this message. Your message was copied; paste it into an email to murhej.hantoush.work@gmail.com.");
+    } catch {
+      setContactStatus("NOT SENT: the email service could not accept this message. Please email murhej.hantoush.work@gmail.com directly; your message remains in the form.");
+    }
+  };
+  const sendContactMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    setContactSending(true);
+    setContactStatus("Sending your message...");
+    try {
+      const response = await fetch("https://formsubmit.co/ajax/murhej.hantoush.work@gmail.com", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          name: String(formData.get("name") ?? ""),
+          email: String(formData.get("email") ?? ""),
+          _replyto: String(formData.get("email") ?? ""),
+          message: String(formData.get("message") ?? ""),
+          _subject: `Portfolio message from ${String(formData.get("name") ?? "Visitor")}`,
+          _template: "table",
+          _honey: String(formData.get("website") ?? ""),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success !== true && result.success !== "true") {
+        throw new Error("Form submission was not accepted");
+      }
+      form.reset();
+      setContactStatus("Your message was accepted. If this is the first submission, check murhej.hantoush.work@gmail.com and confirm FormSubmit’s activation email so delivery can begin.");
+    } catch {
+      await copyMessageFallback(formData);
+    } finally {
+      setContactSending(false);
+    }
+  };
   const goTo = (id: string) => {
     setMenuOpen(false);
     document
@@ -1322,18 +1384,68 @@ function App() {
                 Open to junior software, AI/ML, full-stack, and machine-learning
                 engineering opportunities.
               </p>
-              <a
+              <button
                 className="button button-lime contact-email"
-                href="mailto:murhej.hantoush.work@gmail.com"
+                type="button"
+                aria-expanded={contactFormOpen}
+                aria-controls="contact-form"
+                onClick={() => {
+                  setContactFormOpen((open) => !open);
+                  setContactStatus("");
+                }}
               >
-                Start a conversation <ArrowUpRight size={16} />
-              </a>
+                {contactFormOpen ? "Close message form" : "Start a conversation"}
+                <ArrowUpRight size={16} />
+              </button>
               <span className="contact-address">
                 murhej.hantoush.work@gmail.com
               </span>
-              <div className="contact-socials" aria-label="Profile links not provided">
-                <span><Github size={13} /> GitHub profile link not provided</span>
-                <span><Linkedin size={13} /> LinkedIn link not provided</span>
+              <button
+                className="contact-copy-email"
+                type="button"
+                onClick={copyContactEmail}
+                aria-live="polite"
+              >
+                {emailCopied ? <Check size={13} /> : <Copy size={13} />}
+                {emailCopied ? "EMAIL COPIED" : "COPY EMAIL ADDRESS"}
+              </button>
+              <AnimatePresence initial={false}>
+                {contactFormOpen && (
+                  <motion.form
+                    id="contact-form"
+                    className="contact-form"
+                    onSubmit={sendContactMessage}
+                    initial={reduceMotion ? false : { opacity: 0, height: 0, y: 10 }}
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: 8 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.28 }}
+                  >
+                    <label>
+                      Your name
+                      <input name="name" autoComplete="name" required maxLength={100} />
+                    </label>
+                    <label>
+                      Your email
+                      <input name="email" type="email" autoComplete="email" required maxLength={254} />
+                    </label>
+                    <label className="contact-message-field">
+                      Message
+                      <textarea name="message" rows={4} required maxLength={5000} />
+                    </label>
+                    <input className="contact-honeypot" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+                    <div className="contact-form-footer">
+                      <button className="button button-lime" type="submit" disabled={contactSending}>
+                        {contactSending ? "Sending..." : "Send message"}
+                        <ArrowUpRight size={15} />
+                      </button>
+                      <span className="contact-form-status" role="status" aria-live="polite">{contactStatus}</span>
+                    </div>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+              <div className="contact-socials" aria-label="Professional profiles">
+                <a href="https://github.com/Murhej" target="_blank" rel="noreferrer"><Github size={13} /> GitHub <ArrowUpRight size={11} /></a>
+                <a href="https://www.linkedin.com/in/murhej-hantoush-928a90198/" target="_blank" rel="noreferrer"><Linkedin size={13} /> LinkedIn <ArrowUpRight size={11} /></a>
               </div>
             </div>
             <div className="contact-side">

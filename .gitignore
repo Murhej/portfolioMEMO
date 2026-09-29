@@ -2,5 +2,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 .github/prompts/
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
